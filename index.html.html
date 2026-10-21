@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f7ff">
+<title>班级随机抽签器</title>
+<style>
+:root{--ink:#202746;--muted:#69718b;--accent:#6558e8;--accent2:#8e65f5;--line:#e9eaf4}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--ink);background:radial-gradient(ellipse at top,#e8eaff 0%,#f7f8ff 48%,#f4f6fb 100%);padding:24px 15px calc(28px + env(safe-area-inset-bottom))}
+.wrap{width:min(100%,520px);margin:0 auto}
+header{text-align:center;padding:14px 4px 22px}
+.logo{width:62px;height:62px;margin:0 auto 13px;border-radius:21px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;color:#fff;font-size:30px;box-shadow:0 10px 25px #7668e84a}
+h1{font-size:27px;margin:0 0 8px;letter-spacing:1px}.subtitle{font-size:14px;color:var(--muted)}
+.card{background:#ffffffed;border:1px solid #fff;border-radius:24px;padding:20px;box-shadow:0 12px 36px #343c7210}
+.stage{background:linear-gradient(145deg,#f0efff,#f8f7ff);border:1px solid #e6e3ff;border-radius:19px;padding:24px 14px;text-align:center;min-height:146px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:9px}
+.stage-label{font-size:12px;letter-spacing:2px;color:#7770bd}
+.current{font-size:32px;font-weight:800;letter-spacing:2px;min-height:42px;display:flex;align-items:center;justify-content:center}
+.current.spinning{animation:bounce .16s ease-in-out infinite alternate}
+@keyframes bounce{from{transform:translateY(-2px);opacity:.75}to{transform:translateY(2px);opacity:1}}
+.dots{display:none;gap:5px}.dots.show{display:flex}.dots i{width:6px;height:6px;background:#8b7df1;border-radius:50%;animation:dot .6s infinite alternate}.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes dot{to{transform:translateY(-5px);opacity:.4}}
+button{font:inherit;border:0;cursor:pointer;touch-action:manipulation}
+.primary{width:100%;margin-top:17px;padding:16px;border-radius:15px;color:#fff;font-size:17px;font-weight:750;background:linear-gradient(100deg,var(--accent),var(--accent2));box-shadow:0 8px 18px #6558e833;transition:transform .15s,opacity .15s}
+.primary:active{transform:scale(.985)}button:disabled{opacity:.55;cursor:wait}
+.result-head{display:flex;justify-content:space-between;align-items:center;margin:23px 2px 12px}
+.result-head h2{font-size:17px;margin:0}.count{font-size:12px;color:var(--muted);background:#f0efff;border-radius:99px;padding:6px 9px}
+.results{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.person{display:flex;align-items:center;gap:10px;padding:13px 11px;border:1px solid var(--line);border-radius:14px;background:#fff;min-width:0;animation:appear .35s both}
+.person:nth-child(2){animation-delay:.07s}.person:nth-child(3){animation-delay:.14s}.person:nth-child(4){animation-delay:.21s}.person:nth-child(5){animation-delay:.28s}
+@keyframes appear{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.number{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border-radius:10px;background:#efedff;color:#6254dc;font-weight:800}
+.person:first-child .number{background:#fff0cb;color:#a66b00}
+.person-name{font-weight:700;font-size:15px;overflow-wrap:anywhere}
+.empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:20px 8px;font-size:14px;background:#fafaff;border:1px dashed #deddf1;border-radius:14px}
+.actions{display:flex;gap:10px;margin-top:13px}.secondary{flex:1;background:#f1f1fb;color:#514d7c;padding:12px 8px;border-radius:12px;font-size:14px;font-weight:650}
+.foot{text-align:center;font-size:12px;color:#8a90a5;margin:18px 0 0;line-height:1.7}
+.roster{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+details summary{color:#6259a0;font-size:13px;cursor:pointer;font-weight:650}
+.names{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.chip{font-size:12px;background:#f6f6fc;border:1px solid #ececf5;border-radius:8px;padding:6px 9px;color:#5e6479}
+.toast{position:fixed;left:50%;bottom:25px;transform:translate(-50%,15px);opacity:0;background:#262744;color:#fff;padding:11px 16px;border-radius:12px;font-size:14px;transition:.2s;pointer-events:none;white-space:nowrap}.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:360px){h1{font-size:24px}.card{padding:15px}.results{gap:7px}.person{padding:11px 8px;gap:7px}.person-name{font-size:14px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="logo">🎲</div>
+  <h1>班级随机抽签</h1>
+  <div class="subtitle">随机公平 · 一次抽取 5 位同学</div>
+</header>
+<main class="card">
+  <section class="stage" aria-live="polite">
+    <div class="stage-label" id="stageLabel">READY · 准备抽签</div>
+    <div class="current" id="currentName">准备好了吗？</div>
+    <div class="dots" id="dots"><i></i><i></i><i></i></div>
+  </section>
+  <button class="primary" id="drawBtn">🎉 开始抽取 5 人</button>
+  <div class="result-head"><h2>本次抽签结果</h2><span class="count" id="count">尚未抽签</span></div>
+  <section class="results" id="results"><div class="empty">点击上方按钮，揭晓本次抽签结果</div></section>
+  <div class="actions">
+    <button class="secondary" id="copyBtn">复制结果</button>
+    <button class="secondary" id="clearBtn">清空结果</button>
+  </div>
+  <div class="roster">
+    <details>
+      <summary id="rosterSummary">查看可参与名单</summary>
+      <div class="names" id="rosterNames"></div>
+    </details>
+  </div>
+</main>
+<p class="foot">共 <span id="eligibleCount">22</span> 位同学参与抽签<br>已排除指定的 9 位同学 · 每次抽出的 5 人不重复</p>
+</div>
+<div class="toast" id="toast">已复制</div>
+<script>
+const allStudents = [
+"陈逸馨","屈博言","江婉鑫","黄梓涵","潘妹影","廖紫萱","徐锐桐","王圆成","彭钰航","吴羽涵",
+"贾锴远","曾晨","吴祖迪","王宇扬","吴志成","赵梓皓","李沐航","欧阳书智","李翼飞","颜恪诚",
+"王奕涛","李思锐","杨丰嘉","邢益磊","章子豪","伍紫来","黎文熙","常昊","樊诗睿","李汪奇","李一扬"
+];
+const excluded = new Set(["黄梓涵","屈博言","江婉鑫","常昊","吴祖迪","陈逸馨","徐锐桐","王奕涛","吴志成"]);
+const students = allStudents.filter(name => !excluded.has(name));
+const drawBtn = document.getElementById("drawBtn");
+const currentName = document.getElementById("currentName");
+const stageLabel = document.getElementById("stageLabel");
+const dots = document.getElementById("dots");
+const results = document.getElementById("results");
+const count = document.getElementById("count");
+let lastDraw = [];
+document.getElementById("eligibleCount").textContent = students.length;
+document.getElementById("rosterSummary").textContent = `查看可参与名单（${students.length}人）`;
+document.getElementById("rosterNames").innerHTML = students.map(n => `<span class="chip">${n}</span>`).join("");
+
+function secureShuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function showResults(names) {
+  results.innerHTML = names.map((name, i) =>
+    `<div class="person"><span class="number">${i + 1}</span><span class="person-name">${name}</span></div>`
+  ).join("");
+}
+function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+drawBtn.addEventListener("click", async () => {
+  if (drawBtn.disabled) return;
+  drawBtn.disabled = true;
+  results.innerHTML = '<div class="empty">抽签进行中……</div>';
+  stageLabel.textContent = "DRAWING · 正在抽签";
+  currentName.classList.add("spinning");
+  dots.classList.add("show");
+  const chosen = secureShuffle(students).slice(0, 5);
+  const duration = 1600;
+  const start = Date.now();
+  while (Date.now() - start < duration) {
+    currentName.textContent = students[Math.floor(Math.random() * students.length)];
+    await wait(75);
+  }
+  currentName.classList.remove("spinning");
+  dots.classList.remove("show");
+  currentName.textContent = "抽签完成！";
+  stageLabel.textContent = "COMPLETE · 抽取成功";
+  lastDraw = chosen;
+  showResults(chosen);
+  count.textContent = "已抽出 5 人";
+  drawBtn.textContent = "🔄 再抽一次";
+  drawBtn.disabled = false;
+});
+document.getElementById("clearBtn").addEventListener("click", () => {
+  lastDraw = [];
+  currentName.textContent = "准备好了吗？";
+  stageLabel.textContent = "READY · 准备抽签";
+  currentName.classList.remove("spinning");
+  dots.classList.remove("show");
+  results.innerHTML = '<div class="empty">点击上方按钮，揭晓本次抽签结果</div>';
+  count.textContent = "尚未抽签";
+  drawBtn.textContent = "🎉 开始抽取 5 人";
+  drawBtn.disabled = false;
+});
+document.getElementById("copyBtn").addEventListener("click", async () => {
+  if (!lastDraw.length) { showToast("请先完成抽签"); return; }
+  const text = lastDraw.map((n, i) => `${i + 1}. ${n}`).join("\n");
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("抽签结果已复制");
+  } catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); ta.remove();
+    showToast("抽签结果已复制");
+  }
+});
+function showToast(msg) {
+  const toast = document.getElementById("toast");
+  toast.textContent = msg; toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 1800);
+}
+</script>
+</body>
+</html>
